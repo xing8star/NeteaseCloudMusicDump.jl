@@ -85,16 +85,7 @@ function ID3v2.ID3(x::NeteaseCloudMusic)
     TPE2=TextFrame(ID3v2.UTF8,x.meta.artist[1][1]))
     ID3(header,tags)
 end
-# function Base.write(io::IO,x::NeteaseCloudMusic)
-#     header,tags=ID3(x)
-#     write(io,header(x))
-#     write(io,zeros(UInt8,4))
-#     writeID3Tags(io,tags)
-#     _size=position(io)-10
-#     seek(io,6)
-#     write(io,BitPaddedInt2bytes(_size))
-#     seekend(io)
-# end
+
 function Base.read(x::NeteaseCloudMusic,_lenght::Int)
     chunk = read(x.io,_lenght)
     key_box=x.key_box
