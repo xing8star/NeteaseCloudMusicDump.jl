@@ -1,3 +1,4 @@
 [deps]
 ArgumentProcessor = "da5e4181-4678-44ac-9e93-56ca85e03b1f"
+ID3v2 = "aa8ebd2a-69f4-4101-9c3b-d00e000b16fb"
 NeteaseCloudMusicDump = "cebf2024-d58d-46c9-be44-38132da3c851"

@@ -4,9 +4,10 @@ import JSON3
 using AES
 using ID3v2
 using ID3v2:TextFrame,APIC
-
+using FLACMetadatas
+using FLACMetadatas:VComment
 export NeteaseCloudMusic,
-decode
+decode,isncm
 const core_key = hex2bytes("687A4852416D736F356B496E62617857")
 const meta_key = hex2bytes("2331346C6A6B5F215C5D2630553C2728")
 const MAGIC_HEADER=hex2bytes("4354454e4644414d")
@@ -33,6 +34,7 @@ function _NeteaseCloudMusic(io::IO)
     # crc32 = unpack(crc32)
     skip(io,5)
     image_data = read(io,unpack(read(io,4)))
+    mark(io)
     # file_upper_path,_=splitext(file_path)
     key_box,meta_data,image_data
 end
@@ -44,17 +46,34 @@ struct NeteaseCloudMusic
     io::IO
     function NeteaseCloudMusic(file_path::AbstractString)
         f = open(file_path)
-        @assert read(f,8) == MAGIC_HEADER error("not is a ncm file")
+        @assert read(f,8) == MAGIC_HEADER error("Not is a ncm file.")
         file_upper_path,_=splitext(file_path)
         new(file_upper_path,_NeteaseCloudMusic(f)...,f)
     end
-    function NeteaseCloudMusic(::Val{:safe},file_path::AbstractString)
+    function NeteaseCloudMusic(::Val{:guarded},file_path::AbstractString)
         f = open(file_path)
         if read(f,8) != MAGIC_HEADER 
             return new(),true
         end
         file_upper_path,_=splitext(file_path)
         new(file_upper_path,_NeteaseCloudMusic(f)...,f),false
+    end
+    function NeteaseCloudMusic(::Val{:safe},file_path::AbstractString)
+        f = open(file_path)
+        if read(f,8) != MAGIC_HEADER 
+            return ErrorException("Not is a ncm file.")
+        end
+        file_upper_path,_=splitext(file_path)
+        new(file_upper_path,_NeteaseCloudMusic(f)...,f),false
+    end
+end
+function isncm(file_path::AbstractString)
+    open(file_path) do io
+        if read(io,8) == MAGIC_HEADER
+            true
+        else
+            false
+        end
     end
 end
 function decode_keybox(key_data::Vector{UInt8})
@@ -85,7 +104,22 @@ function ID3v2.ID3(x::NeteaseCloudMusic)
     TPE2=TextFrame(ID3v2.UTF8,x.meta.artist[1][1]))
     ID3(header,tags)
 end
-
+const MetadataMap=Dict(:musicName=>:TITLE,:artist=>:ARTIST,
+:album=>:ALBUM,:flag=>:TRACKNUMBER)
+transfer(::Val{:musicName},data::AbstractDict,::Val{FLACMetadatas})=:TITLE=>data[:musicName]
+transfer(::Val{:artist},data::AbstractDict,::Val{FLACMetadatas})=:ARTIST=>data[:artist][1][1]
+transfer(::Val{:album},data::AbstractDict,::Val{FLACMetadatas})=:ALBUM=>data[:album]
+transfer(::Val{:flag},data::AbstractDict,::Val{FLACMetadatas})=:TRACKNUMBER=>string(data[:flag])
+function FLACMetadatas.VComment(x::JSON3.Object)
+    encoder="Lavf57.71.100"
+    ver=Val(FLACMetadatas)
+    _keys=keys(MetadataMap)
+    meta_blocks=[transfer(Val(k),x,ver) for (k,_) in x if k in _keys]
+    push!(meta_blocks,:ENCODER => encoder)
+    VComment(encoder,NamedTuple(meta_blocks))
+end
+FLACMetadatas.VComment(x::NeteaseCloudMusic)=VComment(x.meta)
+FLACMetadatas.Picture(x::NeteaseCloudMusic)=FLACMetadatas.Picture(3,"image/jpeg","",0,0,0,0,x.image)
 function Base.read(x::NeteaseCloudMusic,_lenght::Int)
     chunk = read(x.io,_lenght)
     key_box=x.key_box
@@ -109,11 +143,28 @@ function Base.read(x::NeteaseCloudMusic,_lenght::Int,::Val{:threads})
 end
 function decode(x::NeteaseCloudMusic,out::IO=IOBuffer(),buffer::Int=typemax(Int);use_threads::Bool=true)
     if eof(x.io) error("Already decode") end
-    write(out,ID3(x))
     flag=if use_threads Val(:threads) else Val(:normal) end
-    while !eof(x.io)
-        audio=read(x,buffer,flag)
-        write(out,audio)
+# mp3
+    if x.meta.format=="mp3"
+        write(out,ID3(x))
+        while !eof(x.io)
+            audio=read(x,buffer,flag)
+            write(out,audio)
+        end
+    end
+    # flac
+    if x.meta.format=="flac"
+        # seekstart(out)
+        flacdata=IOBuffer()
+        while !eof(x.io)
+            write(flacdata,read(x,buffer,flag))
+        end
+        seekstart(flacdata)
+        metadata=FLACMetadata(flacdata)
+        metadata.metadata_blocks[3]=FLACMetadatas.Picture(x)
+        push!(metadata.metadata_blocks,FLACMetadatas.VComment(x))
+        write(out,metadata)
+        write(out,take!(flacdata))
     end
     close(x.io)
     out
@@ -127,7 +178,7 @@ function decode(x::String,outname::Union{Nothing,String}=nothing)
     close(io)
 end
 function decode(::Val{:safe},x::String,outname::Union{Nothing,String}=nothing)
-    music,nil=NeteaseCloudMusic(Val(:safe),x)
+    music,nil=NeteaseCloudMusic(Val(:guarded),x)
     if nil return true end
     outname=isnothing(outname) ? music.filenamepath : outname
     file_name = joinpath(outname* '.' * music.meta["format"])

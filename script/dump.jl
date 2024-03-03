@@ -11,6 +11,12 @@ posthandle(x)=if !input1.iskeep
     rm(x)
 end
 safedecode(x::String)=decode(Val(:safe),x)
+function decode_delete(x::String)
+    res=safedecode(x)
+        if !(res isa Bool && res)
+            posthandle(x)
+        end
+end 
 using NeteaseCloudMusicDump
 for i in ARGS
     # println(i)
@@ -18,17 +24,9 @@ for i in ARGS
         files=readdir(i, join=true)
         Threads.@threads :dynamic for z in files
             println(z)
-            res=safedecode(z)
-            if res isa Bool && res
-                continue
-            end
-            posthandle(i)
+            decode_delete(z)
         end
     elseif isfile(i)
-        res=safedecode(i)
-            if res isa Bool && res
-                continue
-            end
-        posthandle(i)
+        decode_delete(i)
     end
 end
