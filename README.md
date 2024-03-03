@@ -3,8 +3,9 @@
 ## Installation
 
 ```julia-repl
-(@v1.9) pkg> add https://github.com/xing8star/ID3v2.jl
-(@v1.9) pkg> add https://github.com/xing8star/NeteaseCloudMusicDump.jl
+(@v1.10) pkg> add https://github.com/xing8star/ID3v2.jl
+(@v1.10) pkg> add https://github.com/xing8star/FLACMetadatas.jl
+(@v1.10) pkg> add https://github.com/xing8star/NeteaseCloudMusicDump.jl
 ```
 
 ## Example
