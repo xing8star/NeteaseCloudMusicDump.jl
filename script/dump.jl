@@ -10,12 +10,14 @@ const input1 = ArgumentProcessor.parse(ARGS, group)
 posthandle(x)=if !input1.iskeep
     rm(x)
 end
-safedecode(x::String)=decode(Val(:safe),x)
+# safedecode(x::String)=decode(Val(:safe),x)
 function decode_delete(x::String)
-    res=safedecode(x)
-        if !(res isa Bool && res)
+    isncm(x) || return -1
+    # res=
+    decode(x)
+        # if !(res isa Bool && res)
             posthandle(x)
-        end
+        # end
 end 
 using NeteaseCloudMusicDump
 for i in ARGS

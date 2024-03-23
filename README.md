@@ -17,5 +17,5 @@ decode("yourkugoumusic.ncm")
 ## Script
 Firstly need to instantiate the 'script' project
 ```bash
-julia --project=script dump.jl --keep "yourmusic.ncm" directory
+julia --project=script script/dump.jl --keep "yourmusic.ncm" directory
 ```
