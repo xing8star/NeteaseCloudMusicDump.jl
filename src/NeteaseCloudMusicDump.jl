@@ -104,8 +104,6 @@ function ID3v2.ID3(x::NeteaseCloudMusic)
     TPE2=TextFrame(ID3v2.UTF8,x.meta.artist[1][1]))
     ID3(header,tags)
 end
-# const MetadataMap=Dict(:musicName=>:TITLE,:artist=>:ARTIST,
-# :album=>:ALBUM,:flag=>:TRACKNUMBER)
 const available_keys_metadata=[:musicName,:artist,:album,:flag,:musicId,:albumId,:alias,:transNames,:albumPicDocId,:albumPic]
 transfer(::Val{:musicName},data::AbstractDict,::Val{FLACMetadatas})=:TITLE=>data[:musicName]
 transfer(::Val{:artist},data::AbstractDict,::Val{FLACMetadatas})=:ARTIST=>join([i[1] for i in data[:artist]],' ')
@@ -122,12 +120,11 @@ transfer(::Val{:albumPic},data::AbstractDict,::Val{FLACMetadatas})=:ALBUMPICURL=
 
 transfer(::Val{:artistid},data::AbstractDict,::Val{FLACMetadatas})=:ARTISTID=>join([string(i[2]) for i in data[:artist]],' ')
 transfer(_,data::AbstractDict,::Val{FLACMetadatas})=missing
-
+Base.broadcastable(o::JSON3.Object) = Ref(o)
 function FLACMetadatas.VComment(x::JSON3.Object)
     encoder="Lavf57.71.100"
     ver=Val(FLACMetadatas)
-    # _keys=keys(MetadataMap)
-    meta_blocks=[transfer(Val(k),x,ver) for (k,_) in x]
+    meta_blocks=transfer.(Val.(collect(keys(x))),x,ver)
     push!(meta_blocks,:ENCODER => encoder)
     push!(meta_blocks,transfer(Val(:artistid),x,ver))
     VComment(encoder,NamedTuple(skipmissing(meta_blocks)))
@@ -158,16 +155,16 @@ end
 function decode(x::NeteaseCloudMusic,out::IO=IOBuffer(),buffer::Int=typemax(Int);use_threads::Bool=true)
     if eof(x.io) error("Already decode") end
     flag=if use_threads Val(:threads) else Val(:normal) end
-# mp3
+    # mp3
     if x.meta.format=="mp3"
         write(out,ID3(x))
         while !eof(x.io)
             audio=read(x,buffer,flag)
             write(out,audio)
         end
-    end
+    
     # flac
-    if x.meta.format=="flac"
+    elseif x.meta.format=="flac"
         # seekstart(out)
         flacdata=IOBuffer()
         while !eof(x.io)
