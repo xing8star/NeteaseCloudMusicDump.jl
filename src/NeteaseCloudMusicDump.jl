@@ -172,6 +172,7 @@ function decode(x::NeteaseCloudMusic,out::IO=IOBuffer(),buffer::Int=typemax(Int)
         end
         seekstart(flacdata)
         metadata=FLACMetadata(flacdata)
+        @assert length(metadata.metadata_blocks) >=2 "Metadata blocks are not greater two"
         if length(metadata.metadata_blocks) >=3
             metadata.metadata_blocks[3]=FLACMetadatas.Picture(x)
         else
