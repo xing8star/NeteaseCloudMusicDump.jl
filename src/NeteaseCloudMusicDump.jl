@@ -117,6 +117,7 @@ transfer(::Val{:transNames},data::AbstractDict,::Val{FLACMetadatas})=if length(d
     :DESCRIPTION=>data[:transNames][1] else missing end
 transfer(::Val{:albumPicDocId},data::AbstractDict,::Val{FLACMetadatas})=:ALBUMPICDOCID=>string(data[:albumPicDocId])
 transfer(::Val{:albumPic},data::AbstractDict,::Val{FLACMetadatas})=:ALBUMPICURL=>data[:albumPic]
+transfer(::Val{:gain},data::AbstractDict,::Val{FLACMetadatas})=:REPLAYGAIN_TRACK_GAIN=>string(data[:gain])
 
 transfer(::Val{:artistid},data::AbstractDict,::Val{FLACMetadatas})=:ARTISTID=>join([string(i[2]) for i in data[:artist]],' ')
 transfer(_,data::AbstractDict,::Val{FLACMetadatas})=missing
@@ -188,7 +189,7 @@ end
 function decode(x::String,outname::Union{Nothing,String}=nothing)
     music=NeteaseCloudMusic(x)
     outname=isnothing(outname) ? music.filenamepath : outname
-    file_name = joinpath(outname* '.' * music.meta["format"])
+    file_name = outname* '.' * music.meta["format"]
     io = open(file_name, "w")
     decode(music,io)
     close(io)
@@ -197,7 +198,7 @@ function decode(::Val{:safe},x::String,outname::Union{Nothing,String}=nothing)
     music,nil=NeteaseCloudMusic(Val(:guarded),x)
     if nil return true end
     outname=isnothing(outname) ? music.filenamepath : outname
-    file_name = joinpath(outname* '.' * music.meta["format"])
+    file_name = outname* '.' * music.meta["format"]
     io = open(file_name, "w")
     decode(music,io)
     close(io)
